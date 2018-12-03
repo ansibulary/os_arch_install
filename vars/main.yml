@@ -1,0 +1,5 @@
+arch_pkgs:
+  reflector:
+    site: https://xyne.archlinux.ca/projects/reflector/
+    url: https://xyne.archlinux.ca/projects/reflector/src/reflector-2018.tar.xz
+    sigfile: https://xyne.archlinux.ca/projects/reflector/src/reflector-2018.tar.xz.sig

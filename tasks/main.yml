@@ -1,0 +1,69 @@
+---
+- name: Local Ops directories exist
+  file:
+    state: directory
+    dest: "{{ item }}"
+    recurse: true
+  with_items:
+    - "{{ ops.util_dir }}"
+    - "{{ ops.temp_dir }}"
+
+- include_role:
+    name: util/collect
+  vars:
+    package: {
+      name: reflector,
+      url: "{{ arch_pkgs.reflector.url }}",
+      sigfile: "{{ arch_pkgs.reflector.sigfile }}",
+    }
+
+- name: Reflector archive directory detected
+  command: tar -Jtf "{{ ops.repo_dir }}/collected/reflector/{{ arch_pkgs.reflector.url|basename }}"
+  args:
+    warn: false
+  changed_when: false
+  register: install_reflector_archive
+
+- name: Reflector archive extracted
+  unarchive:
+    src: "{{ ops.repo_dir }}/collected/reflector/{{ arch_pkgs.reflector.url|basename }}"
+    dest: "{{ ops.util_dir }}"
+    creates: "{{ ops.util_dir }}/{{ install_reflector_archive.stdout_lines[0] }}"
+  register: install_reflector_unarchive
+
+- name: ISO mirror found
+  shell: ./reflector --country "{{ arch_prefs.mirror_country }}" --protocol https --score 1 --completion-percent 100 |awk '/Server/{print $3}' |sed 's/$repo.*/iso\/latest/'
+  args:
+    chdir: "{{ ops.util_dir }}/{{ install_reflector_archive.stdout_lines[0] }}"
+  changed_when: false
+  register: install_iso_mirror
+
+- name: ISO mirror index parsed
+  shell: curl -L {{ install_iso_mirror.stdout }} |grep -o 'archlinux-bootstrap[0-9\.-]*x86_64.tar.gz'
+  args:
+    warn: false
+  changed_when: false
+  register: install_iso_url
+
+- include_role:
+    name: util/collect
+  vars:
+    package: {
+      name: archlinux-bootstrap,
+      url: "{{ install_iso_mirror.stdout }}/{{ install_iso_url.stdout_lines[0] }}",
+      sigfile: "{{ install_iso_mirror.stdout }}/{{ install_iso_url.stdout_lines[0] }}.sig"
+    }
+
+# - name: Mirrorlist generated
+#   command: |
+#            ./reflector
+#            --country "{{ arch_prefs.mirror_country }}"
+#            --protocol https
+#            --score 12
+#            --completion-percent 100
+#            --sort rate
+#            --save {{ ops.temp_dir }}/mirrorlist
+#   args:
+#     chdir: "{{ ops.util_dir }}/{{ install_reflector_archive.stdout_lines[0] }}"
+#     creates: "{{ ops.temp_dir }}/mirrorlist"
+
