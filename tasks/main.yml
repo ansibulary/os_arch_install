@@ -32,7 +32,14 @@
   register: install_reflector_unarchive
 
 - name: ISO mirror found
-  shell: ./reflector --country "{{ arch_prefs.mirror_country }}" --protocol https --score 1 --completion-percent 100 |awk '/Server/{print $3}' |sed 's/$repo.*/iso\/latest/'
+  shell: >
+         ./reflector
+         --country "{{ arch_prefs.mirror_country }}"
+         --protocol https
+         --score 1
+         --completion-percent 100
+         |awk '/Server/{print $3}'
+         |sed 's/$repo.*/iso\/latest/'
   args:
     chdir: "{{ ops.util_dir }}/{{ install_reflector_archive.stdout_lines[0] }}"
   changed_when: false
