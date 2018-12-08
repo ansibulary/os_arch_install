@@ -98,16 +98,23 @@
     - dev
     - run
 
-# - name: Mirrorlist generated
-#   command: |
-#            ./reflector
-#            --country "{{ arch_prefs.mirror_country }}"
-#            --protocol https
-#            --score 12
-#            --completion-percent 100
-#            --sort rate
-#            --save {{ ops.temp_dir }}/mirrorlist
-#   args:
-#     chdir: "{{ ops.util_dir }}/{{ install_reflector_archive.stdout_lines[0] }}"
-#     creates: "{{ ops.temp_dir }}/mirrorlist"
+- name: Mirrorlist generated
+  become: true
+  command: |
+           ./reflector
+           --country "{{ arch_prefs.mirror_country }}"
+           --protocol https
+           --score 12
+           --completion-percent 100
+           --sort rate
+           --save {{ ops.temp_dir }}/mirrorlist
+  args:
+    chdir: "{{ ops.util_dir }}/{{ install_reflector_archive.stdout_lines[0] }}"
+    creates: "{{ ops.temp_dir }}/mirrorlist"
+
+- name: Host resolv.conf placed in bootstrap
+  become: true
+  copy:
+    src: /etc/resolv.conf
+    dest: /tmp/root.x86_64/etc/resolv.conf
 
