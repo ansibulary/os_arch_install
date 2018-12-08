@@ -61,6 +61,43 @@
       sigfile: "{{ install_iso_mirror.stdout }}/{{ install_iso_url.stdout_lines[0] }}.sig"
     }
 
+- name: Bootstrap root archive extracted
+  become: true
+  unarchive:
+    src: "{{ ops.repo_dir }}/collected/archlinux-bootstrap/{{ install_iso_mirror.stdout }}/{{ install_iso_url.stdout_lines[0] }}"
+    dest: /tmp/
+    creates: /tmp/root.x86_64/
+
+- name: Bootstrap root filesystem boundary bind mounted
+  become: true
+  command: mount --bind /tmp/root.x86_64  /tmp/root.x86_64
+  args:
+    warn: false
+  when: not '/tmp/root.x86_64' in (ansible_mounts|map(attribute='mount')|list)
+
+- name: All mounts scanned
+  shell: cat /proc/mounts | awk '{print $2}'
+  changed_when: false
+  register: install_mounts
+
+- name: /proc mounted into bootstrap root
+  become: true
+  command: mount -t proc /proc /tmp/root.x86_64/proc
+  args:
+    warn: false
+  when: not '/tmp/root.x86_64/proc' in install_mounts.stdout
+
+- name: System VFS mounted into bootstrap root
+  become: true
+  command: mount --make-rslave --rbind /{{ item }} /tmp/root.x86_64/{{ item }}
+  args:
+    warn: false
+  when: not ('/tmp/root.x86_64/' + item ) in install_mounts.stdout
+  with_items:
+    - sys
+    - dev
+    - run
+
 # - name: Mirrorlist generated
 #   command: |
 #            ./reflector
