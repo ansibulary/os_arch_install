@@ -1,2 +1,25 @@
-arch_prefs:
+# Override this with dictionary of mountpoints mapped to partitions
+arch_install_partitions:
+  /: /dev/sdaX
+
+arch_install:
   mirror_country: "{{ arch_mirror_country|default('United States') }}"
+  partitions:
+    - mount: /
+      fs: "{{ arch_install_partitions['/'] }}"
+    - mount: /boot
+      fs: "{{ arch_install_partitions['/boot']|default('') }}"
+    - mount: /boot/efi
+      fs: "{{ arch_install_partitions['/boot/efi']|default('') }}"
+    - mount: /home
+      fs: "{{ arch_install_partitions['/home']|default('') }}"
+    - mount: /var
+      fs: "{{ arch_install_partitions['/var']|default('') }}"
+    - mount: /var/log
+      fs: "{{ arch_install_partitions['/var/log']|default('') }}"
+    - mount: /var/log/audit
+      fs: "{{ arch_install_partitions['/var/log/audit']|default('') }}"
+    - mount: /opt
+      fs: "{{ arch_install_partitions['/opt']|default('') }}"
+    - mount: swap
+      fs: "{{ arch_install_partitions['swap']|default('') }}"

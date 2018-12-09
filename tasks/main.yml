@@ -34,7 +34,7 @@
 - name: ISO mirror found
   shell: >
          ./reflector
-         --country "{{ arch_prefs.mirror_country }}"
+         --country "{{ arch_install.mirror_country }}"
          --protocol https
          --score 1
          --completion-percent 100
@@ -118,3 +118,27 @@
     src: /etc/resolv.conf
     dest: /tmp/root.x86_64/etc/resolv.conf
 
+#TODO: Partition devices & Create filesystems
+
+- name: Target filesystem mountpoints exist in bootstrap
+  become: true
+  file:
+    state: directory
+    dest: /tmp/root.x86_64/mnt{{ item.mount|regex_replace('/$', '') }}
+  vars:
+    mount_query: "[?fs!='']"
+  loop_control:
+    label: "{{ item.mount }}"
+  with_items:
+    - "{{ arch_install.partitions|json_query(mount_query) }}"
+
+- name: Target filesystems mounted into bootstrap /mnt
+  become: true
+  command: mount {{ item.fs }} /tmp/root.x86_64/mnt{{ item.mount|regex_replace('/$', '') }}
+  args:
+    warn: false
+  vars:
+    json_query: "[?fs!='']"
+  when: ('/tmp/root.x86_64/mnt' + item.mount|regex_replace('/$', '')) not in (ansible_mounts|map(attribute='mount')|list)
+  with_items:
+    - "{{ arch_install.partitions|json_query(json_query) }}"
