@@ -1,0 +1,15 @@
+---
+- name: Filesystem mountpoint exists in bootstrap
+  become: true
+  file:
+    state: directory
+    dest: /tmp/root.x86_64/mnt{{ install_partition.mount|regex_replace('/$', '') }}
+  with_items:
+    - "{{ install_partition }}"
+
+- name: Filesystem mounted into bootstrap /mnt
+  become: true
+  command: mount {{ install_partition.fs }} /tmp/root.x86_64/mnt{{ install_partition.mount|regex_replace('/$', '') }}
+  args:
+    warn: false
+  when: ('/tmp/root.x86_64/mnt' + install_partition.mount|regex_replace('/$', '')) not in (ansible_mounts|map(attribute='mount')|list)

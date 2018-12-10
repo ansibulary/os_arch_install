@@ -31,7 +31,7 @@
     creates: "{{ ops.util_dir }}/{{ install_reflector_archive.stdout_lines[0] }}"
   register: install_reflector_unarchive
 
-- name: ISO mirror found
+- name: Bootstrap mirror found
   shell: >
          ./reflector
          --country "{{ arch_install.mirror_country }}"
@@ -43,32 +43,32 @@
   args:
     chdir: "{{ ops.util_dir }}/{{ install_reflector_archive.stdout_lines[0] }}"
   changed_when: false
-  register: install_iso_mirror
+  register: install_bootstrap_mirror
 
-- name: ISO mirror index parsed
-  shell: curl -L {{ install_iso_mirror.stdout }} |grep -o 'archlinux-bootstrap[0-9\.-]*x86_64.tar.gz'
+- name: Bootstrap mirror index parsed
+  shell: curl -L {{ install_bootstrap_mirror.stdout }} |grep -o 'archlinux-bootstrap[0-9\.-]*x86_64.tar.gz'
   args:
     warn: false
   changed_when: false
-  register: install_iso_url
+  register: install_bootstrap_url
 
 - include_role:
     name: util/collect
   vars:
     package: {
       name: archlinux-bootstrap,
-      url: "{{ install_iso_mirror.stdout }}/{{ install_iso_url.stdout_lines[0] }}",
-      sigfile: "{{ install_iso_mirror.stdout }}/{{ install_iso_url.stdout_lines[0] }}.sig"
+      url: "{{ install_bootstrap_mirror.stdout }}/{{ install_bootstrap_url.stdout_lines[0] }}",
+      sigfile: "{{ install_bootstrap_mirror.stdout }}/{{ install_bootstrap_url.stdout_lines[0] }}.sig"
     }
 
 - name: Bootstrap root archive extracted
   become: true
   unarchive:
-    src: "{{ ops.repo_dir }}/collected/archlinux-bootstrap/{{ install_iso_mirror.stdout }}/{{ install_iso_url.stdout_lines[0] }}"
+    src: "{{ ops.repo_dir }}/collected/archlinux-bootstrap/{{ install_bootstrap_url.stdout_lines[0]|basename }}"
     dest: /tmp/
-    creates: /tmp/root.x86_64/
+    creates: /tmp/root.x86_64
 
-- name: Bootstrap root filesystem boundary bind mounted
+- name: Bootstrap root boundary bind mounted
   become: true
   command: mount --bind /tmp/root.x86_64  /tmp/root.x86_64
   args:
@@ -98,47 +98,38 @@
     - dev
     - run
 
+#TODO: Partition devices & Create filesystems
+
+- include_tasks: install_mounts.yml
+  vars:
+    install_mount_query: "[?fs!='']"
+  loop_control:
+    loop_var: install_partition
+  with_items:
+    - "{{ arch_install.partitions|json_query(install_mount_query) }}"
+
+- name: Detect active servers in mirrorlist
+  command: grep -q '^Server' /tmp/root.x86_64/etc/pacman.d/mirrorlist
+  changed_when: false
+  failed_when: false
+  register: install_mirrorlist_active
+
 - name: Mirrorlist generated
   become: true
   command: |
            ./reflector
-           --country "{{ arch_prefs.mirror_country }}"
+           --country "{{ arch_install.mirror_country }}"
            --protocol https
            --score 12
            --completion-percent 100
            --sort rate
-           --save {{ ops.temp_dir }}/mirrorlist
+           --save /tmp/root.x86_64/etc/pacman.d/mirrorlist
   args:
     chdir: "{{ ops.util_dir }}/{{ install_reflector_archive.stdout_lines[0] }}"
-    creates: "{{ ops.temp_dir }}/mirrorlist"
+  when: install_mirrorlist_active.rc != 0
 
 - name: Host resolv.conf placed in bootstrap
   become: true
   copy:
     src: /etc/resolv.conf
     dest: /tmp/root.x86_64/etc/resolv.conf
-
-#TODO: Partition devices & Create filesystems
-
-- name: Target filesystem mountpoints exist in bootstrap
-  become: true
-  file:
-    state: directory
-    dest: /tmp/root.x86_64/mnt{{ item.mount|regex_replace('/$', '') }}
-  vars:
-    mount_query: "[?fs!='']"
-  loop_control:
-    label: "{{ item.mount }}"
-  with_items:
-    - "{{ arch_install.partitions|json_query(mount_query) }}"
-
-- name: Target filesystems mounted into bootstrap /mnt
-  become: true
-  command: mount {{ item.fs }} /tmp/root.x86_64/mnt{{ item.mount|regex_replace('/$', '') }}
-  args:
-    warn: false
-  vars:
-    json_query: "[?fs!='']"
-  when: ('/tmp/root.x86_64/mnt' + item.mount|regex_replace('/$', '')) not in (ansible_mounts|map(attribute='mount')|list)
-  with_items:
-    - "{{ arch_install.partitions|json_query(json_query) }}"
