@@ -149,11 +149,9 @@
   failed_when: (install_pacstrap.stdout|from_json)['stats']['localhost']['failures'] > 0
 
 - name: Failed pacstrap
-  fail:
-    msg: >
-         "{{ (install_pacstrap.stdout|from_json).plays[1].tasks[0].task.name }}->
-          {{ (install_pacstrap.stdout|from_json).plays[1].tasks[0].hosts.localhost.stdout_lines }}
-          {{ (install_pacstrap.stdout|from_json).plays[1].tasks[0].hosts.localhost.stderr_lines }}"
+  debug:
+    msg: "{{ (install_pacstrap.stdout|from_json).plays[1].tasks[0]|json_query(task_query) }}"
   vars:
-    task_query: '{tasks: tasks[1].{stdout: hosts.localhost.stdout_lines, stderr: hosts.localhost.stderr_lines }}'
+    task_query: '{task: task.name, stdout: hosts.localhost.stdout_lines, stderr: hosts.localhost.stderr_lines}'
   when: (install_pacstrap.stdout|from_json)['stats']['localhost']['failures'] > 0
+  failed_when: true
