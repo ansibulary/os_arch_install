@@ -133,3 +133,27 @@
   copy:
     src: /etc/resolv.conf
     dest: /tmp/root.x86_64/etc/resolv.conf
+
+#TODO: Make idempotent
+- name: Pacstrap run in chroot (this may take a long time)
+  become: true
+  shell: ansible-playbook arch_chroot |grep -v 'limit @'
+  args:
+    chdir: "{{ playbook_dir }}"
+  environment:
+    ANSIBLE_STDOUT_CALLBACK: json
+  register: install_pacstrap
+  no_log: true
+  ignore_errors: true
+  changed_when: (install_pacstrap.stdout|from_json)['stats']['localhost']['changed'] > 0
+  failed_when: (install_pacstrap.stdout|from_json)['stats']['localhost']['failures'] > 0
+
+- name: Failed pacstrap
+  fail:
+    msg: >
+         "{{ (install_pacstrap.stdout|from_json).plays[1].tasks[0].task.name }}->
+          {{ (install_pacstrap.stdout|from_json).plays[1].tasks[0].hosts.localhost.stdout_lines }}
+          {{ (install_pacstrap.stdout|from_json).plays[1].tasks[0].hosts.localhost.stderr_lines }}"
+  vars:
+    task_query: '{tasks: tasks[1].{stdout: hosts.localhost.stdout_lines, stderr: hosts.localhost.stderr_lines }}'
+  when: (install_pacstrap.stdout|from_json)['stats']['localhost']['failures'] > 0
