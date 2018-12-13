@@ -102,11 +102,41 @@
 
 - include_tasks: install_mounts.yml
   vars:
-    install_mount_query: "[?fs!='']"
+    install_mount_query: "[?fs!=''&&mount!='swap']"
   loop_control:
     loop_var: install_partition
   with_items:
     - "{{ arch_install.partitions|json_query(install_mount_query) }}"
+
+- name: Detect active host swap
+  shell: swapon -s | tail -n +2 | cut -d' ' -f 1
+  changed_when: false
+  register: install_swapon
+
+#TODO: Idempotence/Sanity check?
+- name: Target swap enabled
+  become: true
+  command: mkswap "{{ item.fs }}"
+  loop_control:
+    label: "{{ item.fs }}"
+  vars:
+    install_swap_query: "[?fs!=''&&mount=='swap']"
+  with_items: "{{ arch_install.partitions|json_query(install_swap_query) }}"
+
+- name: Target swap activated
+  become: true
+  command: swapon "{{ item.fs }}"
+  loop_control:
+    label: "{{ item.fs }}"
+  vars:
+    install_swap_query: "[?fs!=''&&mount=='swap']"
+  with_items: "{{ arch_install.partitions|json_query(install_swap_query) }}"
+  notify: Target swap deactivated
+
+- name: Host swap deactivated
+  become: true
+  command: swapoff "{{ install_swapon.stdout }}"
+  notify: Host swap activated
 
 - name: Detect active servers in mirrorlist
   command: grep -q '^Server' /tmp/root.x86_64/etc/pacman.d/mirrorlist
@@ -136,13 +166,11 @@
 
 # TODO: detect filesystems for adding, e.g., btrfs-progs
 
-- debug: msg="Bootstrapping Arch chroot (this may take a long time)"
-
 # TODO: handle error states better
-#TODO: Make idempotent
+# TODO: Make idempotent
 - name: Pacstrap run in chroot
   become: true
-  shell: ansible-playbook _arch_bootstrap|grep -v 'limit @'
+  shell: ansible-playbook _arch_bootstrap | grep -v 'limit @'
   args:
     chdir: "{{ playbook_dir }}"
   environment:
@@ -153,10 +181,11 @@
   changed_when: (install_pacstrap.stdout|from_json)['stats']['localhost']['changed'] > 0
   failed_when: (install_pacstrap.stdout|from_json)['stats']['localhost']['failures'] > 0
 
-- name: Arch Bootstrap
+- debug: var=install_pacstrap
+- name: Arch Bootstrap Failure
   debug:
     msg: "{{ (install_pacstrap.stdout|from_json).plays[1].tasks|json_query(task_query) }}"
   vars:
-    task_query: '[*].{task: task.name, stdout: hosts.localhost.stdout_lines, stderr: hosts.localhost.stderr_lines}'
- when: (install_pacstrap.stdout|from_json)['stats']['localhost']['failures'] > 0
- failed_when: true
+    task_query: '[?hosts.localhost.stdout||hosts.localhost.stderr].{task: task.name, stdout: hosts.localhost.stdout_lines, stderr: hosts.localhost.stderr_lines}'
+  # when: (install_pacstrap.stdout|from_json)['stats']['localhost']['failures'] > 0
+  # failed_when: true
