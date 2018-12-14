@@ -111,7 +111,7 @@
 - name: Detect active host swap
   shell: swapon -s | tail -n +2 | cut -d' ' -f 1
   changed_when: false
-  register: install_swapon
+  register: install_host_swap
 
 #TODO: Idempotence/Sanity check?
 - name: Target swap enabled
@@ -131,12 +131,12 @@
   vars:
     install_swap_query: "[?fs!=''&&mount=='swap']"
   with_items: "{{ arch_install.partitions|json_query(install_swap_query) }}"
-  notify: Target swap deactivated
+  notify: Target swap off
 
 - name: Host swap deactivated
   become: true
-  command: swapoff "{{ install_swapon.stdout }}"
-  notify: Host swap activated
+  command: swapoff "{{ install_host_swap.stdout }}"
+  notify: Host swap on
 
 - name: Detect active servers in mirrorlist
   command: grep -q '^Server' /tmp/root.x86_64/etc/pacman.d/mirrorlist
