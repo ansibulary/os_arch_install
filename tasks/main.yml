@@ -191,5 +191,5 @@
     msg: "{{ (install_pacstrap.stdout|from_json).plays[1].tasks|json_query(task_query) }}"
   vars:
     task_query: '[?hosts.localhost.stdout||hosts.localhost.stderr].{task: task.name, stdout: hosts.localhost.stdout_lines, stderr: hosts.localhost.stderr_lines}'
-  # when: (install_pacstrap.stdout|from_json)['stats']['localhost']['failures'] > 0
-  # failed_when: true
+  when: true # VERBOSE=1
+  failed_when: (install_pacstrap.stdout|from_json)['stats']['localhost']['failures'] > 0
