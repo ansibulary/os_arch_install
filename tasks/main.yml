@@ -164,6 +164,10 @@
     src: /etc/resolv.conf
     dest: /tmp/root.x86_64/etc/resolv.conf
 
+- set_fact:
+    arch_bootstrap_progs:
+          - btrfs-progs
+
 # TODO: detect filesystems for adding, e.g., btrfs-progs
 
 # TODO: handle error states better
