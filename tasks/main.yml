@@ -136,7 +136,9 @@
 - name: Host swap deactivated
   become: true
   command: swapoff "{{ install_host_swap.stdout }}"
+  when: install_host_swap.stdout|length > 0
   notify: Host swap on
+
 
 - name: Detect active servers in mirrorlist
   command: grep -q '^Server' /tmp/root.x86_64/etc/pacman.d/mirrorlist
@@ -166,15 +168,15 @@
 
 - set_fact:
     arch_bootstrap_progs:
+          - "{{ arch_bootstrap_progs|default([]) }}"
           - btrfs-progs
 
 # TODO: detect filesystems for adding, e.g., btrfs-progs
-
 # TODO: handle error states better
 # TODO: Make idempotent
 - name: Pacstrap run in chroot
   become: true
-  shell: ansible-playbook _arch_bootstrap | grep -v 'limit @'
+  shell: ansible-playbook _arch_bootstrap -e  arch_bootstrap_progs=\"{{ arch_bootstrap_progs|join(' ') }}\" | grep -v 'limit @'
   args:
     chdir: "{{ playbook_dir }}"
   environment:
@@ -186,10 +188,10 @@
   failed_when: (install_pacstrap.stdout|from_json)['stats']['localhost']['failures'] > 0
 
 - debug: var=install_pacstrap
-- name: Arch Bootstrap Failure
+- name: Arch Bootstrap
   debug:
     msg: "{{ (install_pacstrap.stdout|from_json).plays[1].tasks|json_query(task_query) }}"
   vars:
-    task_query: '[?hosts.localhost.stdout||hosts.localhost.stderr].{task: task.name, stdout: hosts.localhost.stdout_lines, stderr: hosts.localhost.stderr_lines}'
-  when: true # VERBOSE=1
+    task_query: '[?hosts.localhost.stdout||hosts.localhost.stderr||hosts.localhost.msg].{task: task.name, stdout: hosts.localhost.stdout_lines, stderr: hosts.localhost.stderr_lines, msg: hosts.localhost.msg}'
+  when: (install_pacstrap.stdout|from_json).plays|default([])|length > 0 # VERBOSE=1
   failed_when: (install_pacstrap.stdout|from_json)['stats']['localhost']['failures'] > 0
