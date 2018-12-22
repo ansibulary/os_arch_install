@@ -102,7 +102,7 @@
 
 - include_tasks: install_mounts.yml
   vars:
-    install_mount_query: "[?fs!='']"
+    install_mount_query: "[?fs!=''&&mount!='swap']"
   loop_control:
     loop_var: install_partition
   with_items:
