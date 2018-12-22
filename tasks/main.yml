@@ -134,6 +134,11 @@
     src: /etc/resolv.conf
     dest: /tmp/root.x86_64/etc/resolv.conf
 
+- set_fact:
+    arch_bootstrap_progs:
+          - "{{ arch_bootstrap_progs|default([]) }}"
+          - btrfs-progs
+
 #TODO: Make idempotent
 - name: Pacstrap run in chroot (this may take a long time)
   become: true
