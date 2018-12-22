@@ -137,7 +137,7 @@
 #TODO: Make idempotent
 - name: Pacstrap run in chroot (this may take a long time)
   become: true
-  shell: ansible-playbook arch_chroot |grep -v 'limit @'
+  shell: ansible-playbook -e arch_bootstrap_progs="{{ arch_bootstrap_progs|join(' ') }}" _arch_bootstrap |grep -v 'limit @'
   args:
     chdir: "{{ playbook_dir }}"
   environment:
