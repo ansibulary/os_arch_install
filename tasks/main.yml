@@ -75,7 +75,7 @@
     warn: false
   when: not '/tmp/root.x86_64' in (ansible_mounts|map(attribute='mount')|list)
 
-- name: All mounts scanned
+- name: Current mounts detected
   shell: cat /proc/mounts | awk '{print $2}'
   changed_when: false
   register: install_mounts
