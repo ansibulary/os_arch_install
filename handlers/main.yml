@@ -1,0 +1,14 @@
+---
+- name: Host swap on
+  become: true
+  command: swapon "{{ install_host_swap.stdout }}"
+
+- name: Target swap off
+  become: true
+  command: swapoff "{{ item.fs }}"
+  loop_control:
+    label: "{{ item.fs }}"
+  vars:
+    install_swap_query: "[?fs!=''&&mount=='swap']"
+  with_items: "{{ arch_install.partitions|json_query(install_swap_query) }}"
+

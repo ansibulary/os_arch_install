@@ -134,6 +134,31 @@
     src: /etc/resolv.conf
     dest: /tmp/root.x86_64/etc/resolv.conf
 
+- name: Target swap enabled
+  become: true
+  command: mkswap "{{ item.fs }}"
+  loop_control:
+    label: "{{ item.fs }}"
+  vars:
+    install_swap_query: "[?fs!=''&&mount=='swap']"
+  with_items: "{{ arch_install.partitions|json_query(install_swap_query) }}"
+
+- name: Target swap activated
+  become: true
+  command: swapon "{{ item.fs }}"
+  loop_control:
+    label: "{{ item.fs }}"
+  vars:
+    install_swap_query: "[?fs!=''&&mount=='swap']"
+  with_items: "{{ arch_install.partitions|json_query(install_swap_query) }}"
+  notify: Target swap off
+
+- name: Host swap deactivated
+  become: true
+  command: swapoff "{{ install_host_swap.stdout }}"
+  when: install_host_swap.stdout|length > 0
+  notify: Host swap on
+
 - set_fact:
     arch_bootstrap_progs:
           - "{{ arch_bootstrap_progs|default([]) }}"
