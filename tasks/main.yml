@@ -134,6 +134,11 @@
     src: /etc/resolv.conf
     dest: /tmp/root.x86_64/etc/resolv.conf
 
+- name: Detect active host swap
+  shell: swapon -s | tail -n +2 | cut -d' ' -f 1
+  changed_when: false
+  register: install_host_swap
+
 - name: Target swap enabled
   become: true
   command: mkswap "{{ item.fs }}"
